@@ -25,7 +25,14 @@ router.post("/upload-repo", async (req, res) => {
 
     // 3. Extract chunks
     for (const file of files) {
-      const chunks = extractCodeChunks(file);
+      let chunks = [];
+
+      try {
+        chunks = extractCodeChunks(file);
+      } catch (err) {
+        console.error("Chunk extraction failed:", file);
+        continue;
+      }
 
       const enrichedChunks = chunks.map((chunk) => ({
         ...chunk,
@@ -51,6 +58,8 @@ router.post("/upload-repo", async (req, res) => {
           type: chunk.type,
           name: chunk.name,
           code: chunk.code,
+          start_line: chunk.startLine,
+          end_line: chunk.endLine,
           embedding: embedding,
         });
 

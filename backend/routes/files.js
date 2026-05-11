@@ -3,26 +3,41 @@ import { supabase } from "../services/supabaseClient.js";
 
 const router = express.Router();
 
+const cleanFilePath = (path = "") =>
+  path.replace(/temp[\\/][^\\/]+[\\/]/g, "").replace(/\\/g, "/");
+
 router.get("/files/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
 
   const { data, error } = await supabase
     .from("code_chunks")
-    .select("file_path, code, name")
-    .eq("session_id", sessionId);
+    .select("file_path, code, start_line")
+    .eq("session_id", sessionId)
+    .order("start_line", { ascending: true });
 
   if (error) {
-    return res.status(500).json({ error: "Failed to fetch files" });
+    return res.status(500).json({
+      error: "Failed to fetch files",
+    });
   }
 
-  const uniqueFiles = {};
+  const fileMap = {};
+
+  // rebuild full files from chunks
   data.forEach((item) => {
-    if (!uniqueFiles[item.file_path]) {
-      uniqueFiles[item.file_path] = item;
+    const cleanPath = cleanFilePath(item.file_path);
+
+    if (!fileMap[cleanPath]) {
+      fileMap[cleanPath] = {
+        file_path: cleanPath,
+        code: "",
+      };
     }
+
+    fileMap[cleanPath].code += item.code + "\n";
   });
 
-  res.json(Object.values(uniqueFiles));
+  res.json(Object.values(fileMap));
 });
 
 export default router;

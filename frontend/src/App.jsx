@@ -1,3 +1,4 @@
+const API_URL = import.meta.env.VITE_API_URL;
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
@@ -7,6 +8,8 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import CircularProgress from "@mui/material/CircularProgress";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -40,14 +43,14 @@ export default function App() {
     try {
       setUploadStatus("loading");
 
-      const res = await axios.post("http://localhost:3000/api/upload-repo", {
+      const res = await axios.post(`${API_URL}/api/upload-repo`, {
         repoUrl,
       });
 
       const id = res.data.sessionId;
       setSessionId(id);
 
-      const filesRes = await axios.get(`http://localhost:3000/api/files/${id}`);
+      const filesRes = await axios.get(`${API_URL}/api/files/${id}`);
       setFiles(filesRes.data);
 
       setUploadStatus("done");
@@ -64,7 +67,7 @@ export default function App() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:3000/api/query", {
+      const res = await axios.post(`${API_URL}/api/query`, {
         sessionId,
         question,
       });
@@ -147,12 +150,6 @@ export default function App() {
           )}
         </Button>
 
-        <Typography sx={{ mt: 3, fontSize: "12px" }}>
-          Session:
-          <br />
-          {sessionId || "None"}
-        </Typography>
-
         <Box sx={{ mt: 3, overflow: "auto", flex: 1 }}>
           <FileTree
             tree={fileTree}
@@ -215,9 +212,34 @@ export default function App() {
                 }}
               >
                 <Paper sx={{ p: 2, borderRadius: 3 }}>
-                  <Typography sx={{ whiteSpace: "pre-wrap" }}>
-                    {msg.text}
-                  </Typography>
+                  <Box
+                    sx={{
+                      fontSize: "15px",
+                      lineHeight: 1.7,
+                      color: "#0f172a",
+                      "& p": { margin: "6px 0" },
+                      "& code": {
+                        backgroundColor: "#e2e8f0",
+                        padding: "2px 4px",
+                        borderRadius: "4px",
+                        fontSize: "13px",
+                      },
+                      "& pre": {
+                        backgroundColor: "#0f172a",
+                        color: "white",
+                        padding: "12px",
+                        borderRadius: "8px",
+                        overflowX: "auto",
+                      },
+                      "& h1, & h2, & h3": {
+                        margin: "10px 0 6px",
+                      },
+                    }}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {msg.text}
+                    </ReactMarkdown>
+                  </Box>
 
                   {/* SOURCES */}
                   {msg.sources?.length > 0 && (
@@ -240,29 +262,26 @@ export default function App() {
                           </Typography>
 
                           {/* FUNCTION (CLICKABLE TEXT) */}
-                          {s.function && (
-                            <Typography
-                              onClick={() =>
-                                setSelectedCode({
-                                  file: s.file,
-                                  name: s.function,
-                                  code: s.code,
-                                })
-                              }
-                              sx={{
-                                fontSize: "16px",
-                                ml: 3,
-                                color: "#60a5fa",
-                                cursor: "pointer",
-                                fontWeight: 500,
-                                display: "inline-block",
-
-                                textDecoration: "underline",
-                              }}
-                            >
-                              {s.function}
-                            </Typography>
-                          )}
+                          <Typography
+                            onClick={() =>
+                              setSelectedCode({
+                                file: s.file,
+                                name: `Lines ${s.startLine}-${s.endLine}`,
+                                code: s.code,
+                              })
+                            }
+                            sx={{
+                              fontSize: "14px",
+                              ml: 3,
+                              color: "#60a5fa",
+                              cursor: "pointer",
+                              fontWeight: 400,
+                              display: "inline-block",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Lines : {s.startLine}-{s.endLine}
+                          </Typography>
                         </Box>
                       ))}
                     </Box>

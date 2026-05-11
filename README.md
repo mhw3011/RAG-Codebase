@@ -176,7 +176,7 @@ SUPABASE_KEY=
 ## Clone Repository
 
 ```bash
-git clone https://github.com/mhw3011/Codebase-RAG.git
+git clone https://github.com/mhw3011/RAG-Codebase.git
 ```
 
 ---

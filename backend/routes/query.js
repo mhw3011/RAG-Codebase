@@ -19,11 +19,15 @@ router.post("/query", async (req, res) => {
     const { question, sessionId } = req.body;
 
     if (!question || !sessionId) {
-      return res.status(400).json({ error: "missing input" });
+      return res.status(400).json({
+        error: "missing input",
+      });
     }
 
+    // generate query embedding
     const queryEmbedding = await getEmbedding(question);
 
+    // semantic retrieval
     const { data: chunks, error } = await supabase.rpc("match_code_chunks", {
       query_embedding: queryEmbedding,
       match_count: 6,
@@ -31,69 +35,59 @@ router.post("/query", async (req, res) => {
     });
 
     if (error) {
-      return res.status(500).json({ error: "db error" });
+      return res.status(500).json({
+        error: "db error",
+      });
     }
 
     if (!chunks?.length) {
       return res.json({
-        answer: "No relevant code found",
+        answer: "No relevant code found.",
         sources: [],
       });
     }
 
+    // build semantic context
     const context = chunks
-      .map((c) => `File: ${c.file_path}\nFunction: ${c.name}\nCode:\n${c.code}`)
+      .map(
+        (c) => `
+File: ${cleanFilePath(c.file_path)}
+Lines: ${c.start_line}-${c.end_line}
+
+Code:
+${c.code}
+`,
+      )
       .join("\n\n---\n\n");
 
+    // ask LLM
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content: `
-You are a STRICT codebase QA engine.
+You are a semantic codebase RAG assistant.
 
-YOU MUST FOLLOW THESE RULES:
+RULES:
 
-1. Use ONLY the minimal code required to answer the question.
-2. DO NOT list all retrieved chunks.
-3. DO NOT include unrelated files or functions.
-4. If a file/function is not directly used in the explanation → DO NOT mention it.
-5. Prefer 1–3 MOST RELEVANT functions only.
-6. If multiple chunks are retrieved, FILTER them mentally and use only relevant ones.
-7.Do NOT output temp paths.
-
+1. Answer ONLY using the provided code context.
+2. Be technical and concise.
+3. Do NOT hallucinate files/functions.
+4. Explain actual implementation details from the code.
+5. Mention only truly relevant files.
+6. Do NOT output temp paths.
+7. Focus on implementation flow, not theory.
 
 OUTPUT FORMAT:
 
-Section 1: 
+Answer:
+<technical explanation>
 
-give answer to the question the user asked regarding STICTLY only the files NOT any other thoery.
-
-
-
-
-
-section 2:
-
-Function: <name>
-File: <path>
-Purpose: <one line>
-Logic(be technical try to use code to explain):
-1. step one
-2. step two
-3. step three
-4.step four
-
-
-
-
-IMPORTANT RULE:
-- If a function/file is not explicitly used in Logic → DO NOT include it in response.
-
-At the end:
-
-
+Relevant Files:
+- file path
+- what it does
+- important implementation details
 `,
         },
         {
@@ -111,17 +105,16 @@ ${question}
 
     let raw = completion.choices[0].message.content;
 
-    // 🔥 CLEAN ALL TEMP PATHS
+    // clean temp paths
     raw = raw.replace(/temp[\\/][^\\/]+[\\/]/g, "");
 
-    // 🔥 BUILD FULL SOURCE OBJECTS WITH CODE (IMPORTANT FIX)
-    const sources = chunks
-      .filter((c) => raw.toLowerCase().includes((c.name || "").toLowerCase()))
-      .map((c) => ({
-        file: cleanFilePath(c.file_path),
-        function: c.name,
-        code: c.code, // ✅ FIX FOR MODAL
-      }));
+    // use top retrieved chunks directly
+    const sources = chunks.map((c) => ({
+      file: cleanFilePath(c.file_path),
+      startLine: c.start_line,
+      endLine: c.end_line,
+      code: c.code,
+    }));
 
     return res.json({
       answer: raw,
@@ -129,7 +122,10 @@ ${question}
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "failed" });
+
+    return res.status(500).json({
+      error: "failed",
+    });
   }
 });
 
