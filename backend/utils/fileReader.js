@@ -21,6 +21,7 @@ const ignoredFiles = [
   "yarn.lock",
   "vite.config.js",
   "eslint.config.js",
+  "",
 ];
 
 const ignoredFolders = [

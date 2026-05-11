@@ -289,7 +289,6 @@ export default function App() {
                 </Paper>
               </Box>
             ))}
-
             {loading && <CircularProgress size={20} />}
           </Box>
 
