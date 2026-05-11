@@ -21,6 +21,12 @@ const ignoredFiles = [
   "yarn.lock",
   "vite.config.js",
   "eslint.config.js",
+  "tsconfig.json",
+  ".eslintrc.json",
+  "components.json",
+  "next.config.ts",
+  "prettier.config.js",
+  "tailwind.config.ts",
   "",
 ];
 
